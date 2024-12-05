@@ -1,4 +1,4 @@
-use std::{ffi::c_void, str::FromStr};
+use std::{ffi::c_void, str::FromStr, sync::{atomic::AtomicBool, Arc}};
 
 use anyhow::{anyhow, Result};
 use base64::{engine::general_purpose::STANDARD as base64_engine, Engine};
@@ -105,15 +105,12 @@ impl super::BiometricTrait for Biometric {
         let async_operation = result.Credential()?.RequestSignAsync(&challenge_buffer)?;
         focus_security_prompt()?;
 
-        // start thread tokio
-
-        let (tx, rx) = tokio::sync::mpsc::channel(1);
-        let task = tokio::task::spawn_blocking(move || {
-            // wait for rx, or timeout, and every x seconds do
+        let done = Arc::new(AtomicBool::new(false));
+        let done_clone = done.clone();
+        let _ = tokio::task::spawn_blocking(move || {
             loop {
-                if rx.is_empty() {
-                    println!("focusing");
-                    focus_security_prompt();
+                if !done_clone.load(std::sync::atomic::Ordering::Relaxed) {
+                    let _ = focus_security_prompt();
                     std::thread::sleep(std::time::Duration::from_millis(500));
                 } else {
                     break;
@@ -122,7 +119,7 @@ impl super::BiometricTrait for Biometric {
         });
  
         let signature = async_operation.get();
-        let _ = tx.blocking_send(());
+        done.store(true, std::sync::atomic::Ordering::Relaxed);
         let signature = signature?;
 
         if signature.Status()? != KeyCredentialStatus::Success {

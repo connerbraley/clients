@@ -1,3 +1,5 @@
+use std::sync::atomic::AtomicBool;
+
 use windows::{
     core::s,
     Win32::{
@@ -9,14 +11,24 @@ use windows::{
     },
 };
 
-pub fn allow_foreground() {
+pub fn allow_foreground() -> Arc<AtomicBool> {
+    let should_foreground = Arc::new(AtomicBool::new(false));
     let _ = tokio::task::spawn_blocking(|| {
         loop {
-            focus_security_prompt();
-            std::thread::sleep(std::time::Duration::from_millis(500));
+            if !should_foreground.load(Ordering::Relaxed) {
+                std::thread::sleep(std::time::Duration::from_millis(100));
+                continue;
+            }
+            should_foreground.store(false, Ordering::Relaxed);
+
+            for _ in 0..60 {
+                focus_security_prompt();
+                std::thread::sleep(std::time::Duration::from_millis(1000));
+            }
         }
     });
 
+    should_foreground
 }
 
 fn focus_security_prompt() -> bool {

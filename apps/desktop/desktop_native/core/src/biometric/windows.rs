@@ -184,9 +184,7 @@ fn random_challenge() -> [u8; 16] {
     challenge
 }
 
-/// Searches for a window that looks like a security prompt and set it as focused.
-///
-/// Gives up after 1.5 seconds with a delay of 500ms between each try.
+/// Searches for a window that looks like a security prompt and set it as focused..
 fn focus_security_prompt() -> Result<()> {
     unsafe fn try_find_and_set_focus(
         class_name: windows::core::PCSTR,

@@ -5,6 +5,9 @@ use futures::{FutureExt, SinkExt, StreamExt};
 use log::*;
 use tokio_util::codec::LengthDelimitedCodec;
 
+#[cfg(target_os = "windows")]
+mod windows;
+
 #[cfg(target_os = "macos")]
 embed_plist::embed_info_plist!("../../../resources/info.desktop_proxy.plist");
 
@@ -49,6 +52,9 @@ fn init_logging(log_path: &Path, console_level: LevelFilter, file_level: LevelFi
 ///
 #[tokio::main(flavor = "current_thread")]
 async fn main() {
+    #[cfg(target_os = "windows")]
+    windows::allow_foreground();
+
     let sock_path = desktop_core::ipc::path("bitwarden");
 
     let log_path = {

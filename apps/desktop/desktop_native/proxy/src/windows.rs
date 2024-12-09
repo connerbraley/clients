@@ -1,4 +1,4 @@
-use std::sync::atomic::AtomicBool;
+use std::sync::{atomic::{AtomicBool, Ordering}, Arc};
 
 use windows::{
     core::s,
@@ -13,13 +13,14 @@ use windows::{
 
 pub fn allow_foreground() -> Arc<AtomicBool> {
     let should_foreground = Arc::new(AtomicBool::new(false));
-    let _ = tokio::task::spawn_blocking(|| {
+    let should_foreground_clone = should_foreground.clone();
+    let _ = tokio::task::spawn_blocking(move || {
         loop {
-            if !should_foreground.load(Ordering::Relaxed) {
+            if !should_foreground_clone.load(Ordering::Relaxed) {
                 std::thread::sleep(std::time::Duration::from_millis(100));
                 continue;
             }
-            should_foreground.store(false, Ordering::Relaxed);
+            should_foreground_clone.store(false, Ordering::Relaxed);
 
             for _ in 0..60 {
                 focus_security_prompt();
